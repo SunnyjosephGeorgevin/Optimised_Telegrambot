@@ -114,8 +114,8 @@ async def main() -> None:
         logger.critical("FATAL: BOT_TOKEN environment variable not set!")
         return
 
-    PORT = int(os.environ.get("PORT", 8080))
-    BASE_URL = os.getenv("BASE_URL", "http://localhost:8080")
+    PORT = int(os.environ.get("PORT", 3001))
+    BASE_URL = os.getenv("BASE_URL", "http://localhost:3001")
 
     persistence = PicklePersistence(filepath="bot_persistence")
 
