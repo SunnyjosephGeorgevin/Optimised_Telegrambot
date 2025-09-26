@@ -1,0 +1,6 @@
+timestamp_utc,user_id,username,event,details,shift_date
+2025-09-26T18:23:27.175293+07:00,8223737073,Sunny Joseph,start_work,Checked in late by 07:23:27.,2025-09-26
+2025-09-26T18:23:31.358816+07:00,8223737073,Sunny Joseph,start_toilet,Toilet break #1,2025-09-26
+2025-09-26T18:32:37.587416+07:00,8223737073,Sunny Joseph,end_break,Ended toilet break. Duration: 00:09:06,2025-09-26
+2025-09-26T18:32:47.700425+07:00,8223737073,Sunny Joseph,start_toilet,Toilet break #2,2025-09-26
+2025-09-26T18:32:50.122648+07:00,8223737073,Sunny Joseph,end_break,Ended toilet break. Duration: 00:00:02,2025-09-26

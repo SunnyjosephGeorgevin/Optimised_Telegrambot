@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Work Monitor</title>
+    <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+    <style>
+        body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; background-color: #f0f0f0; }
+        #video-container { position: relative; width: 320px; height: 240px; border: 2px solid #333; border-radius: 8px; overflow: hidden; }
+        video { width: 100%; height: 100%; }
+        #status { margin-top: 20px; font-size: 1.5em; font-weight: bold; }
+        .active { color: #28a745; }
+        .idle { color: #dc3545; }
+        .paused { color: #ffc107; }
+    </style>
+</head>
+<body>
+    <h1>Work Monitoring Active</h1>
+    <div id="video-container">
+        <video id="video" width="320" height="240" autoplay muted></video>
+    </div>
+    <div id="status" class="paused">Connecting...</div>
+
+    <script>
+        const video = document.getElementById('video');
+        const statusDiv = document.getElementById('status');
+        let socket;
+        let monitoringInterval;
+        let isMonitoring = false;
+
+        // --- 1. Load Face Detection Models ---
+        Promise.all([
+            faceapi.nets.tinyFaceDetector.loadFromUri('/models'),
+        ]).then(startMonitoring);
+
+        function startMonitoring() {
+            // Get user_id from the URL
+            const params = new URLSearchParams(window.location.search);
+            const userId = params.get('user_id');
+
+            if (!userId) {
+                statusDiv.textContent = "Error: No User ID found.";
+                return;
+            }
+
+            // --- 2. Connect to WebSocket Server ---
+            const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${wsProtocol}//${window.location.host}/ws?user_id=${userId}`;
+            socket = new WebSocket(wsUrl);
+
+            socket.onopen = () => {
+                console.log("WebSocket connection established.");
+                statusDiv.textContent = "Monitoring Starting...";
+                startVideo();
+            };
+
+            socket.onmessage = (event) => {
+                console.log("Message from server:", event.data);
+                handleServerCommand(event.data);
+            };
+
+            socket.onclose = () => {
+                console.log("WebSocket connection closed.");
+                statusDiv.textContent = "Connection Lost. Please restart.";
+                stopVideo();
+            };
+
+            socket.onerror = (error) => {
+                console.error("WebSocket error:", error);
+                statusDiv.textContent = "Connection Error.";
+            };
+        }
+
+        // --- 3. Start Webcam Feed ---
+        function startVideo() {
+            navigator.mediaDevices.getUserMedia({ video: {} })
+                .then(stream => {
+                    video.srcObject = stream;
+                    isMonitoring = true;
+                    // Start checking for faces every 5 seconds
+                    monitoringInterval = setInterval(detectFace, 5000);
+                })
+                .catch(err => {
+                    console.error("Error accessing webcam:", err);
+                    statusDiv.textContent = "Error: Webcam access denied.";
+                });
+        }
+
+        function stopVideo() {
+            isMonitoring = false;
+            clearInterval(monitoringInterval);
+            if (video.srcObject) {
+                video.srcObject.getTracks().forEach(track => track.stop());
+            }
+        }
+
+        // --- 4. Detect Face and Send Status ---
+        async function detectFace() {
+            if (!isMonitoring) return;
+
+            const detections = await faceapi.detectAllFaces(video, new faceapi.TinyFaceDetectorOptions());
+            
+            if (detections.length > 0) {
+                statusDiv.textContent = "Status: Active";
+                statusDiv.className = 'active';
+                socket.send('ACTIVE');
+            } else {
+                statusDiv.textContent = "Status: Idle";
+                statusDiv.className = 'idle';
+                socket.send('IDLE');
+            }
+        }
+
+        // --- 5. Handle Commands from Server ---
+        function handleServerCommand(command) {
+            if (command === 'PAUSE_MONITORING') {
+                isMonitoring = false;
+                statusDiv.textContent = "Status: On Break (Paused)";
+                statusDiv.className = 'paused';
+            } else if (command === 'RESUME_MONITORING') {
+                isMonitoring = true;
+                statusDiv.textContent = "Status: Resuming...";
+                statusDiv.className = 'active';
+            } else if (command === 'STOP_MONITORING') {
+                stopVideo();
+                statusDiv.textContent = "Session Ended. You can close this window.";
+                statusDiv.className = 'paused';
+                socket.close();
+            }
+        }
+    </script>
+</body>
+</html>
